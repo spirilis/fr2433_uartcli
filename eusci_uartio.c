@@ -88,7 +88,7 @@ void Uartio_suspend(Uartio_t *uart, bool doSuspend)
 bool Uartio_isSuspended(Uartio_t *uart)
 {
     uint16_t ucactlw0 = HWREG16(uart->eusci_base + OFS_UCAxCTLW0);
-    if (ucactl0 & UCSWRST) {
+    if (ucactlw0 & UCSWRST) {
         return true;
     }
     return false;
