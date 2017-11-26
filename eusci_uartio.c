@@ -14,10 +14,10 @@
 
 // Buffer/data structures
 #if defined(__MSP430_HAS_EUSCI_A0__) && defined(UARTLIB_EUSCIA0_ENABLED)
-static Uartio_t _uartio_inst_0;
+Uartio_t _uartio_inst_0;
 #endif
 #if defined(__MSP430_HAS_EUSCI_A1__) && defined(UARTLIB_EUSCIA1_ENABLED)
-static Uartio_t _uartio_inst_1;
+Uartio_t _uartio_inst_1;
 #endif
 
 
@@ -83,6 +83,15 @@ void Uartio_suspend(Uartio_t *uart, bool doSuspend)
         EUSCI_A_UART_enable(uart->eusci_base);
         EUSCI_A_UART_enableInterrupt(uart->eusci_base, EUSCI_A_UART_RECEIVE_INTERRUPT);
     }
+}
+
+bool Uartio_isSuspended(Uartio_t *uart)
+{
+    uint16_t ucactlw0 = HWREG16(uart->eusci_base + OFS_UCAxCTLW0);
+    if (ucactl0 & UCSWRST) {
+        return true;
+    }
+    return false;
 }
 
 void Uartio_setWakeup(Uartio_t *uart, bool rx_wake, bool rx_line_wakeup, bool txdone_wake)
@@ -162,7 +171,7 @@ void Uartio_purge(Uartio_t *uart)
     if (txhead != txtail) {
         EUSCI_A_UART_disableInterrupt(uart->eusci_base, EUSCI_A_UART_TRANSMIT_INTERRUPT | EUSCI_A_UART_TRANSMIT_COMPLETE_INTERRUPT_FLAG);
         // This should run successfully even with GIE=0, since it's polling the eUSCI peripheral logic.
-        while (EUSCI_A_UART_queryStatusFlags(uart->eusci_base, EUSCI_A_UART_BUSY))
+        while (HWREG16(uart->eusci_base + OFS_UCAxSTATW) & UCBUSY)
             ;
         uart->ringbuf.txbuf_tail = uart->ringbuf.txbuf_head;
     }
@@ -189,8 +198,10 @@ size_t Uartio_write(Uartio_t *uart, const uint8_t c)
     uart->ringbuf.txbuf[uart->ringbuf.txbuf_head] = c;
     uart->ringbuf.txbuf_head = i;
     // Force UCTXIFG
-    HWREG16(uart->eusci_base + OFS_UCAxIFG) |= UCTXIFG;
-    EUSCI_A_UART_enableInterrupt(uart->eusci_base, EUSCI_A_UART_TRANSMIT_INTERRUPT | EUSCI_A_UART_TRANSMIT_COMPLETE_INTERRUPT_FLAG);
+    if (!(HWREG16(uart->eusci_base + OFS_UCAxIE) & UCTXIE)) {
+        HWREG16(uart->eusci_base + OFS_UCAxIFG) |= UCTXIFG;
+        HWREG16(uart->eusci_base + OFS_UCAxIE) |= (UCTXIE | UCTXCPTIE);
+    }
     __bis_SR_register(srState);
 
     return 1;
@@ -219,8 +230,10 @@ size_t Uartio_writen(Uartio_t *uart, const void *buf, const size_t n)
     }
 
     // Force UCTXIFG
-    HWREG16(uart->eusci_base + OFS_UCAxIFG) |= UCTXIFG;
-    EUSCI_A_UART_enableInterrupt(uart->eusci_base, EUSCI_A_UART_TRANSMIT_INTERRUPT | EUSCI_A_UART_TRANSMIT_COMPLETE_INTERRUPT_FLAG);
+    if (!(HWREG16(uart->eusci_base + OFS_UCAxIE) & UCTXIE)) {
+        HWREG16(uart->eusci_base + OFS_UCAxIFG) |= UCTXIFG;
+        HWREG16(uart->eusci_base + OFS_UCAxIE) |= (UCTXIE | UCTXCPTIE);
+    }
     __bis_SR_register(srState);
 
     return wrtn;
@@ -266,7 +279,7 @@ void __attribute__ ((interrupt(USCI_A0_VECTOR))) USCI_A0_ISR (void)
     case USCI_UART_UCTXIFG:
       // TX buffer empty?  Disable interrupts if so.
       if (_uartio_inst_0.ringbuf.txbuf_head == _uartio_inst_0.ringbuf.txbuf_tail) {
-          EUSCI_A_UART_disableInterrupt(EUSCI_A0_BASE, EUSCI_A_UART_TRANSMIT_INTERRUPT);
+          HWREG16(EUSCI_A0_BASE + OFS_UCAxIE) &= ~(UCTXIE | UCTXCPTIE);
           if (_uartio_inst_0.txdone_wakeup) {
               __bic_SR_register_on_exit(LPM4_bits);
           }
@@ -324,7 +337,7 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) USCI_A1_ISR (void)
     case USCI_UART_UCTXIFG:
       // TX buffer empty?  Disable interrupts if so.
       if (_uartio_inst_1.ringbuf.txbuf_head == _uartio_inst_1.ringbuf.txbuf_tail) {
-          EUSCI_A_UART_disableInterrupt(EUSCI_A0_BASE, EUSCI_A_UART_TRANSMIT_INTERRUPT);
+          HWREG16(EUSCI_A1_BASE + OFS_UCAxIE) &= ~(UCTXIE | UCTXCPTIE);
           if (_uartio_inst_1.txdone_wakeup) {
               __bic_SR_register_on_exit(LPM4_bits);
           }

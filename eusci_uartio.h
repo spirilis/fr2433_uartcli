@@ -47,6 +47,7 @@ typedef struct {
 /* Function prototypes */
 Uartio_t * Uartio_init(uint8_t, uint32_t); // Takes instance# (eUSCI_A#) and baudrate
 void Uartio_suspend(Uartio_t *, bool);
+bool Uartio_isSuspended(Uartio_t *);
 void Uartio_setWakeup(Uartio_t *, bool, bool, bool);
 unsigned int Uartio_available(Uartio_t *);
 bool Uartio_line_available(Uartio_t *); // Detect if available input includes a newline character

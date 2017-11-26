@@ -50,7 +50,7 @@
 
 Uartio_t *uart;
 
-/* In my test board for this project, this pin is driven low when an FTDI serial cable is attached and the FTDI's Vcc switches an NFET gate w/ Drain=P2.3 */
+/* In my test board for this project, this pin is driven low when an FTDI serial cable is attached and the FTDI's Vcc switches an NFET gate w/ Drain=P2.2 */
 #define UART_DETECT_PxDIR P2DIR
 #define UART_DETECT_PxIN P2IN
 #define UART_DETECT_PxREN P2REN
@@ -58,7 +58,7 @@ Uartio_t *uart;
 #define UART_DETECT_PxIE P2IE
 #define UART_DETECT_PxIES P2IES
 #define UART_DETECT_PxIFG P2IFG
-#define UART_DETECT_PxBIT BIT3
+#define UART_DETECT_PxBIT BIT2
 
 void handleEpicDinosaur(Uartio_t *, unsigned int, const char **);
 void handleHelp(Uartio_t *, unsigned int, const char **);
@@ -141,9 +141,19 @@ void main (void)
     cli_parser_init();
     cli_parser_set_command_list(commandManifest);
 
+    // Is UART_DETECT=1?  Should we suspend the UART right away?
+    if (UART_DETECT_PxIN & UART_DETECT_PxBIT) {
+        Uartio_suspend(uart, true);
+    }
+
     while (1) {
-        LPM0;
-        // Process P2.3 UART_DETECT edge detect interrupt
+        if (Uartio_isSuspended(uart)) {
+            LPM3;
+        } else {
+            LPM0;
+        }
+        
+        // Process P2.2 UART_DETECT edge detect interrupt
         if (uartSuspendSignal != 0) {           // Handling the UART suspend/unsuspend in main() loop is best since
             if (uartSuspendSignal > 0) {        // the cli_parser_process_input piece is handled in main; should the cli parser be
                 cli_parser_reset();             // running while the UART suspend signal comes through, a forced ISR-based suspend may
@@ -154,6 +164,7 @@ void main (void)
             } else {
                 Uartio_suspend(uart, false);
             }
+            uartSuspendSignal = 0;
         }
         // Process incoming RX bytes using CLI parser
         if (Uartio_available(uart)) {
@@ -178,16 +189,16 @@ void __attribute__ ((interrupt(PORT2_VECTOR))) PORT2_ISR (void)
     case P2IV_NONE: break;
     case P2IV_P2IFG0: break;
     case P2IV_P2IFG1: break;
-    case P2IV_P2IFG2: break;
-    case P2IV_P2IFG3:
-    if (UART_DETECT_PxIN & UART_DETECT_PxBIT) { // High level = not connected, low = connected
-        uartSuspendSignal = 1;  // Tell main() loop to perform suspend
-    } else {
-        uartSuspendSignal = -1; // Tell main() loop to unsuspend UART
-    }
-    UART_DETECT_PxIES = (UART_DETECT_PxIES & ~UART_DETECT_PxBIT) | (UART_DETECT_PxIN & UART_DETECT_PxBIT);
-    __bic_SR_register_on_exit(LPM4_bits);
-    break;
+    case P2IV_P2IFG2:
+        if (UART_DETECT_PxIN & UART_DETECT_PxBIT) { // High level = not connected, low = connected
+            uartSuspendSignal = 1;  // Tell main() loop to perform suspend
+        } else {
+            uartSuspendSignal = -1; // Tell main() loop to unsuspend UART
+        }
+        UART_DETECT_PxIES = (UART_DETECT_PxIES & ~UART_DETECT_PxBIT) | (UART_DETECT_PxIN & UART_DETECT_PxBIT);
+        __bic_SR_register_on_exit(LPM4_bits);
+        break;
+    case P2IV_P2IFG3: break;
     case P2IV_P2IFG4: break;
     case P2IV_P2IFG5: break;
     case P2IV_P2IFG6: break;
