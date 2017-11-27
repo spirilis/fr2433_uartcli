@@ -60,9 +60,9 @@ Uartio_t *uart;
 #define UART_DETECT_PxIFG P2IFG
 #define UART_DETECT_PxBIT BIT2
 
-void handleEpicDinosaur(Uartio_t *, unsigned int, const char **);
-void handleHelp(Uartio_t *, unsigned int, const char **);
-void handleVolts(Uartio_t *, unsigned int, const char **);
+void handleEpicDinosaur(Uartio_t *, unsigned int, const char **, bool);
+void handleHelp(Uartio_t *, unsigned int, const char **, bool);
+void handleVolts(Uartio_t *, unsigned int, const char **, bool);
 
 const cli_command_t commandManifest[] = {
     {"epic dinosaur", handleEpicDinosaur},  // Test cli_parser's double-quote feature
@@ -209,18 +209,48 @@ void __attribute__ ((interrupt(PORT2_VECTOR))) PORT2_ISR (void)
 
 
 
-void handleEpicDinosaur(Uartio_t *uart, unsigned int argc, const char **argv)
+void handleEpicDinosaur(Uartio_t *uart, unsigned int argc, const char **argv, bool print_help)
 {
+    if (print_help) {
+        Uartio_println(uart, "\"epic dinosaur\" - just a silly command");
+        return;
+    }
     Uartio_println(uart, "Totally epic TYRANNOSAURUS REX.");
 }
 
-void handleHelp(Uartio_t *uart, unsigned int argc, const char **argv)
+void handleHelp(Uartio_t *uart, unsigned int argc, const char **argv, bool print_help)
 {
-    Uartio_println(uart, "Help not available yet");
+    unsigned int i = 0, found = 0;
+    char *cmd = NULL;
+
+    if (argc > 1) {
+        cmd = (char *)argv[1];
+    }
+    while (commandManifest[i].command != NULL) {
+        if (!cli_strcasecmp(commandManifest[i].command, "help")) {
+            if (cmd == NULL || cli_strcasecmp(commandManifest[i].command, cmd)) {
+                if (found > 0) {
+                    Uartio_println(uart, "----");
+                }
+                commandManifest[i].handler(uart, 0, NULL, true);  // Invoke print_help for each handler
+                found++;
+                Uartio_flush(uart);  // Avoid overrunning the TX ring buffer
+            }
+        }
+        i++;
+    }
+
+    if (found == 0) {
+        Uartio_println(uart, "Command not found.");
+    }
 }
 
-void handleVolts(Uartio_t *uart, unsigned int argc, const char **argv)
+void handleVolts(Uartio_t *uart, unsigned int argc, const char **argv, bool print_help)
 {
+    if (print_help) {
+        Uartio_println(uart, "volts - Not implemented yet, but this could pull ADC info and compute sensor data.");
+        return;
+    }
     // TODO: Pull ADC info, scale, print out voltages
     Uartio_println(uart, "Code to pull ADC info/compute voltages goes here.");
 }
