@@ -17,6 +17,7 @@ static const char *argptr[CLI_PARSER_MAX_ARGUMENTS];
 static unsigned int arg_head;
 static bool ignore_spaces;
 static cli_command_t * cli_command_list;
+static char * cli_command_prompt;
 
 void cli_parser_init()
 {
@@ -25,6 +26,8 @@ void cli_parser_init()
     for (i=0; i < CLI_PARSER_MAX_ARGUMENTS; i++) {
         argptr[i] = (const char *) &(cli_buffer.words[i]);
     }
+
+    cli_command_prompt = CLI_COMMAND_PROMPT_DEFAULT;
 }
 
 unsigned int cli_parser_process_input(Uartio_t * uart)
@@ -60,6 +63,9 @@ unsigned int cli_parser_process_input(Uartio_t * uart)
         if (c == '\x15') { // CTRL-U, clear line
             // Compute potential total length of line
             i=0;
+            if (cli_command_prompt != NULL) {
+                i += strlen(cli_command_prompt);
+            }
             for (j=0; j <= cli_buffer.argc; j++) {
                 i += 2;
                 i += strlen(cli_buffer.words[j]);
@@ -72,23 +78,35 @@ unsigned int cli_parser_process_input(Uartio_t * uart)
             cli_buffer.argc = 0;
             arg_head = 0;
             cli_buffer.words[0][0] = '\0';
+            if (cli_command_prompt != NULL) {
+                Uartio_print(uart, cli_command_prompt);
+            }
             continue;
         }
         if (c == '\x12') { // CTRL-L, clear screen
-            Uartio_writen(uart, "\x1b\x63\x00", 3);
+            Uartio_writen(uart, "\x1b\x63", 3); // ESC-c
             cli_buffer.argc = 0;
             arg_head = 0;
             cli_buffer.words[0][0] = '\0';
+            if (cli_command_prompt != NULL) {
+                Uartio_print(uart, cli_command_prompt);
+            }
             continue;
         }
         if (c == '\x0c') { // Not sure what this is, but Putty emits it after ESC-c.
             Uartio_write(uart, c);
+            if (cli_command_prompt != NULL) {
+                Uartio_print(uart, cli_command_prompt);
+            }
             continue;
         }
         if (c == '\r') {
             Uartio_writen(uart, "\x0d\x0a\x00", 3);
             // Process what we have
             if (cli_buffer.argc == 0 && arg_head == 0) {
+                if (cli_command_prompt != NULL) {
+                    Uartio_print(uart, cli_command_prompt);
+                }
                 continue;  // Nothing to process
             }
             if (arg_head > 0) { // Only do this if the last arg has anything in it; otherwise ignore the last arg
@@ -111,6 +129,9 @@ unsigned int cli_parser_process_input(Uartio_t * uart)
             }
             cli_buffer.argc = 0;
             arg_head = 0;
+            if (cli_command_prompt != NULL) {
+                Uartio_print(uart, cli_command_prompt);
+            }
             continue;
         }
 
@@ -139,6 +160,11 @@ void cli_parser_set_command_list(const cli_command_t * list)
     cli_command_list = (cli_command_t *)list;
 }
 
+void cli_parser_set_command_prompt(const char * prompt)
+{
+    cli_command_prompt = (char *)prompt;
+}
+
 bool cli_strcasecmp(const char *s1, const char *s2)
 {
 
@@ -160,6 +186,31 @@ bool cli_strcasecmp(const char *s1, const char *s2)
         l++;
     }
     if (s1[l] != '\0' || s2[l] != '\0') { // Unequal sizes
+        return false;
+    }
+    return true;
+}
+
+bool cli_strcasehasprefix(const char *s1, const char *pfx)
+{
+    unsigned int l = 0;
+    char cmp1, cmp2;
+
+    while (s1[l] != '\0' && pfx[l] != '\0') {
+        cmp1 = s1[l];
+        if (cmp1 >= 'a' && cmp1 <= 'z') { // Ignore case
+            cmp1 -= 32;
+        }
+        cmp2 = pfx[l];
+        if (cmp2 >= 'a' && cmp2 <= 'z') { // Ignore case
+            cmp2 -= 32;
+        }
+        if (cmp1 != cmp2) {
+            return false;
+        }
+        l++;
+    }
+    if (s1[l] == '\0' && pfx[l] != '\0') { // Exceeded length of s1 first
         return false;
     }
     return true;

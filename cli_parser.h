@@ -16,6 +16,8 @@
  * parser with data from two or more UARTs at once.
  */
 
+#define CLI_COMMAND_PROMPT_DEFAULT "> "
+
 #define CLI_PARSER_MAX_ARGUMENTS 8
 #define CLI_PARSER_MAX_ARG_LENGTH 31
 typedef struct {
@@ -36,8 +38,10 @@ void cli_parser_init();
 unsigned int cli_parser_process_input(Uartio_t *);  // All in one read UART, process commands
 void cli_parser_reset();
 void cli_parser_set_command_list(const cli_command_t *);
+void cli_parser_set_command_prompt(const char *);
 void cli_debug_dump_buffer(char *);  // Dumps current cli_buffer arguments surrounded by brackets with spaces between.
 bool cli_strcasecmp(const char *, const char *);  // Homemade implementation of strcasecmp(), compares while ignoring case of A-Z/a-z, only returns true if matched
+bool cli_strcasehasprefix(const char *s1, const char *pfx); // Checks s1 if it contains pfx as a prefix (case-insensitive match)
 
 /* User text parsing functions */
 int32_t cli_atoi(const char *);
