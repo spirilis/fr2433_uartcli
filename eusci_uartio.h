@@ -13,7 +13,7 @@
 
 /* I/O buffer parameters - can be changed per-project */
 
-#define UARTLIB_TXBUF_SIZE 64
+#define UARTLIB_TXBUF_SIZE 128
 #define UARTLIB_RXBUF_SIZE 64
 
 // Comment these out to disable

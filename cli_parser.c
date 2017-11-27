@@ -102,7 +102,7 @@ unsigned int cli_parser_process_input(Uartio_t * uart)
                 while (cli_command_list[i].command != (void *)0) {
                     if (cli_strcasecmp(cli_buffer.words[0], cli_command_list[i].command)) {
                         // Found a match!  Process it
-                        cli_command_list[i].handler(uart, cli_buffer.argc, argptr);
+                        cli_command_list[i].handler(uart, cli_buffer.argc, argptr, false);
                         cmd_processed_count++;
                         break; // Stop processing command list since we found a match
                     }

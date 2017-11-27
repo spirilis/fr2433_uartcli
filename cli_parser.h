@@ -23,7 +23,8 @@ typedef struct {
     unsigned int argc;
 } cli_parser_buffer_t;
 
-typedef void(*CLI_COMMAND)(Uartio_t *, unsigned int, const char **);
+// Command handler arguments: UART, ARGC, ARGV, print_help (bool)
+typedef void(*CLI_COMMAND)(Uartio_t *, unsigned int, const char **, bool);
 
 typedef struct {
     const char * command;
