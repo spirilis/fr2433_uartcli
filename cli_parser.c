@@ -36,9 +36,6 @@ unsigned int cli_parser_process_input(Uartio_t * uart)
 
     while (Uartio_available(uart) > 0) {
         char c = (char)Uartio_read(uart);
-        /*if (c == '\n') {
-            continue; // ignore CR, only trigger on LF
-        }*/
         if (c == '"') {
             ignore_spaces ^= true; // Double-quotes lets you specify arguments with spaces inside
             Uartio_write(uart, c);
@@ -70,11 +67,11 @@ unsigned int cli_parser_process_input(Uartio_t * uart)
                 i += 2;
                 i += strlen(cli_buffer.words[j]);
             }
-            Uartio_writen(uart, "\x0d\x00", 2);
+            Uartio_write(uart, '\x0d');
             for (; i > 0; i--) {
                 Uartio_write(uart, ' '); // Erase the line
             }
-            Uartio_writen(uart, "\x00\x0d\x00", 3);
+            Uartio_write(uart, '\x0d');
             cli_buffer.argc = 0;
             arg_head = 0;
             cli_buffer.words[0][0] = '\0';
@@ -101,7 +98,7 @@ unsigned int cli_parser_process_input(Uartio_t * uart)
             continue;
         }
         if (c == '\r') {
-            Uartio_writen(uart, "\x0d\x0a\x00", 3);
+            Uartio_writen(uart, "\x0d\x0a", 2);
             // Process what we have
             if (cli_buffer.argc == 0 && arg_head == 0) {
                 if (cli_command_prompt != NULL) {
