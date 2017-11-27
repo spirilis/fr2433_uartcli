@@ -13,7 +13,7 @@
 
 /* I/O buffer parameters - can be changed per-project */
 
-#define UARTLIB_TXBUF_SIZE 128
+#define UARTLIB_TXBUF_SIZE 64
 #define UARTLIB_RXBUF_SIZE 64
 
 // Comment these out to disable
@@ -56,6 +56,9 @@ void Uartio_flush(Uartio_t *);
 void Uartio_purge(Uartio_t *);
 size_t Uartio_write(Uartio_t *, const uint8_t);
 size_t Uartio_writen(Uartio_t *, const void *, const size_t);
+size_t Uartio_print(Uartio_t *, const char *);
+size_t Uartio_println(Uartio_t *, const char *);
+void Uartio_printf(Uartio_t * uart, char *format, ...);
 
 
 #endif /* EUSCI_UARTIO_H_ */

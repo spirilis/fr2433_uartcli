@@ -211,15 +211,16 @@ void __attribute__ ((interrupt(PORT2_VECTOR))) PORT2_ISR (void)
 
 void handleEpicDinosaur(Uartio_t *uart, unsigned int argc, const char **argv)
 {
-    Uartio_writen(uart, "Totally epic TYRANNOSAURUS REX\r\n", 32);
+    Uartio_println(uart, "Totally epic TYRANNOSAURUS REX.");
 }
 
 void handleHelp(Uartio_t *uart, unsigned int argc, const char **argv)
 {
-    Uartio_writen(uart, "Help not available yet\r\n", 24);
+    Uartio_println(uart, "Help not available yet");
 }
 
 void handleVolts(Uartio_t *uart, unsigned int argc, const char **argv)
 {
     // TODO: Pull ADC info, scale, print out voltages
+    Uartio_println(uart, "Code to pull ADC info/compute voltages goes here.");
 }

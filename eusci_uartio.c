@@ -8,16 +8,18 @@
 #include <msp430.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
+#include <stdarg.h>
 #include "driverlib.h"
 #include "eusci_uartio.h"
 
 
 // Buffer/data structures
 #if defined(__MSP430_HAS_EUSCI_A0__) && defined(UARTLIB_EUSCIA0_ENABLED)
-Uartio_t _uartio_inst_0;
+static Uartio_t _uartio_inst_0;
 #endif
 #if defined(__MSP430_HAS_EUSCI_A1__) && defined(UARTLIB_EUSCIA1_ENABLED)
-Uartio_t _uartio_inst_1;
+static Uartio_t _uartio_inst_1;
 #endif
 
 
@@ -237,6 +239,109 @@ size_t Uartio_writen(Uartio_t *uart, const void *buf, const size_t n)
     __bis_SR_register(srState);
 
     return wrtn;
+}
+
+size_t Uartio_print(Uartio_t * uart, const char *text)
+{
+    size_t len = strlen(text);
+
+    return Uartio_writen(uart, text, len);
+}
+
+size_t Uartio_println(Uartio_t * uart, const char *text)
+{
+    size_t len = strlen(text), ttl = 0;
+    const char * newln = "\r\n";
+
+    ttl = Uartio_writen(uart, text, len);
+    ttl += Uartio_writen(uart, newln, 2);
+
+    return ttl;
+}
+
+/* Printf implementation */
+static const unsigned long dv[] = {
+//  4294967296      // 32 bit unsigned max
+    1000000000,     // +0
+     100000000,     // +1
+      10000000,     // +2
+       1000000,     // +3
+        100000,     // +4
+//       65535      // 16 bit unsigned max
+         10000,     // +5
+          1000,     // +6
+           100,     // +7
+            10,     // +8
+             1,     // +9
+};
+
+static void xtoa(Uartio_t * uart, unsigned long x, const unsigned long *dp)
+{
+    char c;
+    unsigned long d;
+    if(x) {
+        while(x < *dp) ++dp;
+        do {
+            d = *dp++;
+            c = '0';
+            while(x >= d) ++c, x -= d;
+            Uartio_write(uart, c);
+        } while(!(d & 1));
+    } else {
+        Uartio_write(uart, '0');
+    }
+}
+
+static void puth(Uartio_t * uart, unsigned n)
+{
+    static const char hex[16] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
+    Uartio_write(uart, hex[n & 15]);
+}
+
+void Uartio_printf(Uartio_t * uart, char *format, ...)
+{
+    char c;
+    int i;
+    long n;
+
+    va_list a;
+    va_start(a, format);
+    while( (c = *format++) ) {
+        if(c == '%') {
+            switch(c = *format++) {
+                case 's':                       // String
+                    Uartio_print(uart, va_arg(a, char*));
+                    break;
+                case 'c':                       // Char
+                    Uartio_write(uart, va_arg(a, int)); // Char gets promoted to Int in args, so it's an int we're looking for (GCC warning)
+                    break;
+                case 'i':                       // 16 bit Integer
+                case 'd':                       // 16 bit Integer
+                case 'u':                       // 16 bit Unsigned
+                    i = va_arg(a, int);
+                    if( (c == 'i' || c == 'd') && i < 0 ) i = -i, Uartio_write(uart, '-');
+                    xtoa(uart, (unsigned)i, dv + 5);
+                    break;
+                case 'l':                       // 32 bit Long
+                case 'n':                       // 32 bit uNsigned loNg
+                    n = va_arg(a, long);
+                    if(c == 'l' &&  n < 0) n = -n, Uartio_write(uart, '-');
+                    xtoa(uart, (unsigned long)n, dv);
+                    break;
+                case 'x':                       // 16 bit heXadecimal
+                    i = va_arg(a, int);
+                    puth(uart, i >> 12);
+                    puth(uart, i >> 8);
+                    puth(uart, i >> 4);
+                    puth(uart, i);
+                    break;
+                case 0: return;
+                default: goto bad_fmt;
+            }
+        } else
+bad_fmt:    Uartio_write(uart, c);
+    }
+    va_end(a);
 }
 
 
