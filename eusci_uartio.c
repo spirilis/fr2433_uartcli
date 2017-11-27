@@ -232,7 +232,7 @@ size_t Uartio_writen(Uartio_t *uart, const void *buf, const size_t n)
     }
 
     // Force UCTXIFG
-    if (!(HWREG16(uart->eusci_base + OFS_UCAxIE) & UCTXIE)) {
+    if (wrtn > 0 && !(HWREG16(uart->eusci_base + OFS_UCAxIE) & UCTXIE)) {
         HWREG16(uart->eusci_base + OFS_UCAxIFG) |= UCTXIFG;
         HWREG16(uart->eusci_base + OFS_UCAxIE) |= (UCTXIE | UCTXCPTIE);
     }
@@ -243,16 +243,21 @@ size_t Uartio_writen(Uartio_t *uart, const void *buf, const size_t n)
 
 size_t Uartio_print(Uartio_t * uart, const char *text)
 {
-    size_t len = strlen(text);
-
-    return Uartio_writen(uart, text, len);
+    if (text != NULL) {
+       size_t len = strlen(text);
+       return Uartio_writen(uart, text, len);
+    }
+    return 0;
 }
 
 size_t Uartio_println(Uartio_t * uart, const char *text)
 {
-    size_t len = strlen(text), ttl = 0;
+    size_t len = 0, ttl = 0;
     const char * newln = "\r\n";
 
+    if (text != NULL) {
+        len = strlen(text);
+    }
     ttl = Uartio_writen(uart, text, len);
     ttl += Uartio_writen(uart, newln, 2);
 
@@ -304,6 +309,9 @@ void Uartio_printf(Uartio_t * uart, char *format, ...)
     int i;
     long n;
 
+    if (format == NULL) {
+        return;
+    }
     va_list a;
     va_start(a, format);
     while( (c = *format++) ) {
